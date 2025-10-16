@@ -1,0 +1,254 @@
+---
+title: "Project 1"
+author: "Marie Janine Villa"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "~/Desktop/SDS" )
+setwd("~/Desktop/SDS")
+
+
+library(kableExtra)
+library(tidyverse)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(lubridate)
+
+schools <- as_tibble(read_csv("schoolscopy.csv"))
+is_tibble(schools)
+
+schools$StudentAchievementScore <- as.numeric(schools$StudentAchievementScore)
+schools$OverallScore <- as.numeric(schools$OverallScore)
+```
+
+
+[**Introduction**]{style="color: blue;"}
+-----
+-   The data set being used on this project is a data set made by the state of Texas, which describes all Texas school ratings for the academic school year 2022-2023. This data set compiles information of all Texas public schools ratings, scores, districts, school level, etc. The data source website can be found [HERE](https://catalog.data.gov/dataset/school-year-2021-2022-statewide-accountability-ratings-as-of-february-6-2023). ![Flag of Austin,Texas](/Users/janinevilla/Desktop/SDS/rawImage.png) Image above found [HERE](https://en.wikipedia.org/wiki/Flag_of_Austin,_Texas).
+
+-   Research Questions
+
+    -   RQ1 – Does the economic disadvantage of a school relate to the schools overall achievement score?
+    -   RQ2 – Does the type of school relate to the schools total number of students?
+    
+
+
+[**Data Preparation**]{style="color: blue;"}
+
+```{r}
+#filter out school type = district & Elem/Secondary
+NewSchools <- filter(schools, SchoolType != "District", SchoolType != "Elem/Secondary")
+
+#Remove unneeded categorical variables
+NewSchools$CampusEnrollmentType <- NULL
+NewSchools$AlternativeEducationAccountability <- NULL
+NewSchools$TXSenateElectionDistrict <- NULL
+NewSchools$TXSenateDistrict <- NULL
+NewSchools$TXHouseElectionDistrict <- NULL
+NewSchools$TXHouseDistrict <- NULL
+NewSchools$USCongressElectionDistrict <- NULL
+NewSchools$USCongressDistrict <- NULL
+NewSchools$DistinctionPostsecondaryReadiness <- NULL
+NewSchools$DistinctionClosingTheGaps <- NULL
+NewSchools$DistinctionProgress <- NULL
+NewSchools$Fmcki <- NULL
+NewSchools$DistinctionSocStudies <- NULL
+NewSchools$DistinctionScience <- NULL
+NewSchools$DistinctionMathematics <- NULL
+NewSchools$SupportLabel <- NULL
+NewSchools$PublicEducationGrant <- NULL
+NewSchools$SupportLabel <- NULL
+NewSchools$ClosingTheGapsScore <- NULL
+NewSchools$ClosingTheGapsRating <- NULL
+NewSchools$AcademicGrowthScore <- NULL
+NewSchools$AcademicGrowthRating <- NULL
+NewSchools$SchoolProgressScore <- NULL
+NewSchools$SchoolProgressRating <- NULL
+NewSchools$AlternativeEducationAccountability <- NULL
+NewSchools$`DistinctionELA/Reading` <- NULL
+NewSchools$CampusNumber <- NULL
+NewSchools$DistrictNumber <- NULL
+NewSchools$County <- NULL
+NewSchools$RelativePerformanceRating <- NULL
+NewSchools$StudentAchievementRating <- NULL
+NewSchools$Region <- NULL
+NewSchools$Charter <- NULL
+NewSchools$RelativePerformanceScore <- NULL
+
+
+#Filter out the NA
+NewSchools <- filter(NewSchools, StudentAchievementScore > 0, OverallScore > 0)
+```
+
+-   In order to prep my data set before beginning the procedure of processing my two research questions, I first had to take out the school types of 'district' as it contained combined values from all schools in that district. I also decided to filter out the school types of 'elem/secondary' as most of the schools were not consistent, for example, some were online schools, schools that scaled from kindergarden to 12th grade, etc. Next, I had to sort out the categorical variables. In the raw data set, there were many categorical variables that were not necessary in the analysis of the two research questions, so, with this in mind, I removed the unneeded categorical variables. In the category of "Student Achievement Score", there were schools that were unrated, so to fix this, I filtered the data set to only include values that have the "Student Achievement Score" to be greater than 0. A challenge that I faced while prepping this data set is that the column titles in the orginal CSV file all had spaced in the names. When importing the data set into Rstudio, the application was not able to find specific columns that were called out due to the spaces in the titles. With this problem at hand, I modified the original CSV file by taking away the spaces in the column names so that Rstudio can find which category that was being called.
+
+
+[**Variable Descriptions**]{style="color: blue;"}
+-------
+```{r echo=FALSE}
+
+VD_NewSchools <-  NewSchools
+VD_NewSchools$District <- NULL
+VD_NewSchools$`% EB/ELStudents` <- NULL
+VD_NewSchools$GradesServed <- NULL
+ 
+```
+
+#Table Creation
+
+| [Variable]{style="color: red;"} | [Type]{style="color: red;"} | [Description]{style="color: red;"} |
+|-------------------|------------------|-----------------------------------|
+| Campus | Categorical | The campus name of the Texas School described. |
+| Overall Rating | Categorical | The Texas school scaled letter rating of it's overall score. The relationship between the two categories is more thoroughly explained [HERE](https://tea.texas.gov/texas-schools/accountability/academic-accountability/a-f-accountability). |
+| Overall Score | Numerical | The Texas school scaled score of student achievement, school progress, and performance in [closing the gaps](https://tea.texas.gov/texas-schools/accountability/academic-accountability/performance-reporting/closing-the-gaps-domainfinal.pdf). A more in-depth description can be found [HERE](https://rptsvr1.tea.texas.gov/cgi/sas/broker?_service=marykay&_program=perfrept.perfmast.sas&_debug=0&ccyy=2023&lev=C&id=043907004&prgopt=reports%2Facct%2Fsummary.sas). |
+| School Type | Categorical | The type of school level the Texas School is (ex. Highschool, Middle School, etc.) |
+| Number of Students | Numerical | The total number of students in attendence at that Texas School |
+| \% of Economically Disadvantage | Numerical | \% of students that are eligible for free or reduced-price meals under the National School Lunch and Child Nutrition Program, in which can be found [HERE](https://www.feedingamerica.org/advocate/federal-hunger-relief-programs/national-school-lunch-program#:~:text=Low%2Dincome%20children%20are%20eligible,TANF%20qualify%20for%20free%20meals.). |
+| Student Achievement Score | Numerical | The scaled score of a Texas Schools student body performance in the STAAR (state administrated test), the campus' College, Career and Military Readiness score, and the schools Graduation Rate. A more in-depth description can be found [HERE](https://rptsvr1.tea.texas.gov/cgi/sas/broker?_service=marykay&_program=perfrept.perfmast.sas&_debug=0&ccyy=2023&lev=C&id=043907004&prgopt=reports%2Facct%2Fsummary.sas). |
+
+[**Univariate Analyses**]{style="color: blue;"}
+------
+[School Type]{style="color: red;"}
+
+```{r echo=FALSE}
+SchoolType_ggplot <- ggplot(VD_NewSchools)
+SchoolType_ggplot + geom_bar(aes(x = SchoolType)) + labs(x = "School Type", y = "Count")
+
+```
+
+-   Based on the bar graph above of the school types included in the data set, it can be seen that the majority of public Texas schools are Elementary schools. The proportion of elementary schools compared to all the public schools in Texas is `r  round(count(filter(VD_NewSchools, SchoolType == "Elementary"))/8156, digits = 3)`.
+
+[Number of Students]{style="color: red;"}
+
+```{r echo=FALSE}
+NumOfStu_ggplot <- ggplot(VD_NewSchools)
+NumOfStu_ggplot + geom_histogram(aes(x = NumberOfStudents), bins = 100) + labs(y = "Count", x = "Number Of Students")
+
+```
+
+-   Based on the histogram above, it can be seen that the distribution of the number of students served at Texas is skewed right. The mean number of students in attendance at each Texas public school is `r round(mean(VD_NewSchools$NumberOfStudents))` students.
+
+[Overall Rating]{style="color: red;"}
+
+```{r echo=FALSE}
+Overallrate_ggplot <- ggplot(VD_NewSchools)
+Overallrate_ggplot + geom_bar(aes(x = OverallRating)) + labs(x = "School Overall Rating", y = "Count")
+```
+
+-   Based on the bar graph above of the school types included in the data set, it can be seen that the majority of public Texas schools having an overall rating of a 'B'. The proportion of Texas public schools with an overall rating of a 'B' is `r  round(count(filter(VD_NewSchools, OverallRating == "B"))/7701, digits = 3)`.
+
+[% of Economically Disadvantaged]{style="color: red;"}
+
+```{r echo=FALSE}
+EconDis_ggplot <- ggplot(VD_NewSchools)
+NumOfStu_ggplot + geom_histogram(aes(x = PercentEconomicallyDisadvantaged), bins = 50) + labs(x = "Percent of Economically Disadvantaged", y = "Count")
+
+```
+
+-   Based on the histogram above, it can be seen that the distribution of the percent of students that are economically disadvantaged is skewed right. The mean percentage of students that are economically disadvantaged Texas public schools is `r round((mean(VD_NewSchools$PercentEconomicallyDisadvantaged)), digits = 3)`%.
+
+[**Bivariate Analyses**]{style="color: blue;"}
+------
+[School Type vs. Student Achievement Score]{style="color: red;"}
+
+```{r echo=FALSE}
+S_ggplot <- ggplot(VD_NewSchools)
+S_ggplot + geom_boxplot(aes(x = StudentAchievementScore, group = SchoolType, y = SchoolType)) + labs ( x ="Student Achievement Score", y ="School Type") 
+
+Ele <- filter(VD_NewSchools, SchoolType=="Elementary")
+HS <- filter(VD_NewSchools, SchoolType=="High School")
+MS <- filter(VD_NewSchools, SchoolType=="Middle School")
+
+```
+
+  - Based on the histogram above, it can be seen that the lowest student achievement score belongs to the High School category, which is a score of `r min(VD_NewSchools$StudentAchievementScore)`, while all school types reach a student achievement score of 99. The IQR for student achievement score at the high school level is `r IQR(HS$StudentAchievementScore)`. The lowest median student achievement score belongs to the elementary school category, which is a score of `r median(Ele$StudentAchievementScore)`. While the highest median student achievement score belongs to the High School category, which is a score of `r median(HS$StudentAchievementScore)`. The IQR for student achievement score at the middle school level is `r IQR(MS$StudentAchievementScore)`. The IQR for student achievement score at the elementary school level is `r IQR(Ele$StudentAchievementScore)`.
+
+[Economic Disadvantage vs. Schools Overall Score (RQ1)]{style="color: red;"}
+```{r echo=FALSE}
+S_ggplot <- ggplot(VD_NewSchools)
+S_ggplot + geom_point(aes(x = OverallScore, y= PercentEconomicallyDisadvantaged)) + labs(x = "Overall Score", y = "Percent of the Economically Disadvantaged")
+
+```
+
+  - Based on the scatter plot above, it can beseen that the relationship between the overall score of a Texas public school and the percent of the economically disadvantaged has a somewhat negative relationship, meaning as the overall score goes up, the percentage of the economically disadvantaged at the school goes down. The correlation coefficent between the two variables is `r round(cor(VD_NewSchools$PercentEconomicallyDisadvantaged,VD_NewSchools$OverallScore), digits = 3)`.
+
+[School Type vs. Total Number of Students (RQ2)]{style="color: red;"}
+```{r echo=FALSE}
+S_ggplot <- ggplot(VD_NewSchools)
+S_ggplot + geom_boxplot(aes(x= NumberOfStudents, group = SchoolType, y = SchoolType)) + labs(x= "Number of Students", y="School Type")
+
+Ele <- filter(VD_NewSchools, SchoolType=="Elementary")
+MS <- filter(VD_NewSchools, SchoolType=="Middle School")
+HS <- filter(VD_NewSchools, SchoolType=="High School")
+```
+
+  - Based on the box plots above it can be seen that the highest number of students belongs to the school category of High school, which is at `r max(VD_NewSchools$NumberOfStudents)` students. The IQR for the total number of students at the high school level is `r round(IQR(HS$NumberOfStudents))` students. The highest median number of students belongs to the category of Middle Schools, which is at `r median(MS$NumberOfStudents)` students. The IQR for total number of students at the middle school level is `r IQR(MS$NumberOfStudents)` students. The lowest median is hard to tell based on the graph, but after analyzing it can be seen median number of students for the Elementary Schools category is `r median(Ele$NumberOfStudents)` students, while the median number of students for High Schools `r round(median(HS$NumberOfStudents))` students. With this, it can be seen that the lowest median number of students belongs to the elementary school category. The IQR for total number of students at the elementary school level is `r IQR(Ele$NumberOfStudents)` students.  
+
+[Overall Ratings vs. Student Achievement Score vs. Percent of Economically Disadvantaged]{style="color: red;"}
+```{r echo=FALSE}
+S_ggplot <- ggplot(VD_NewSchools)
+S_ggplot + geom_point(aes(x= StudentAchievementScore, y = PercentEconomicallyDisadvantaged, color = OverallRating)) + labs(x= "Student Achievement Score", y= "% of the Economically disadvantaged")
+```
+
+  - Based on the scatter plot above, it can be seen that the overall ratings that are lower on the scale is typically associated with a lower student achievement score and higher percentage of the economically disadvantaged. Although, it should be noted that schools with an overall rating of an 'A' is fully spread out on the percentage of the economically disadvantaged but is associated with high values of the student achievement scores. Based on the scatter plot, the spread of the percentage of the economically disadvantaged increased as the overall rating gets better. 
+
+
+
+[**Choice Elements**]{style="color: blue;"}
+------
+  - [Use 5 or more in-line codes within your report]{style="color: red;"}
+      - On all of the univariate analyses and all but the last bivariate analysis includes in-line codes to report the descriptive statistics.
+
+
+  - [2 working hyperlinks within your report that further explain your data source or one of the variables]{style="color: red;"}
+    - The hyperlinks are within the variables: 
+        - Overall Ratings
+        - Overall Score
+        - % of Economically Disadvantage
+        - Student Achievement Score
+
+
+  - [Change the default font style, size, and/or color of the text]{style="color: red;"} 
+    - To differentiate the sections within my report, I used the color blue, and the subheadings within each section are red.
+
+
+  - [Include a floating table of contents to allow easy navigation across sections]{style="color: red;"}
+    - Floating table of contexts to the left. The set-up was done at the beginning of the report within the YAML metadata the report.
+  
+
+  - [Within the bivariate analysis section, include at least one multivariate plot that displays the relationship among three or more variables of interest.  Briefly interpret the findings from your graph (no descriptive statistics required)]{style="color: red;"}
+    -  Relationships between three or more variables is the bivariate analysis titled 'Overall Ratings vs. Student Achievement Score vs. Percent of Economically Disadvantaged'
+  
+
+[**Conclusion**]{style="color: blue;"}
+------
+Summarize the major findings of your analysis and answer your stated research questions in a brief conclusion.  Suggest at least one area for future research.
+  - Within this analysis, I was able to investigate Texas public schools individual categories, which, during my data preparations, was limited to Texas public school overall ratings, overall scores, student achievement scores, school type, number of students, and the percentage of the economically disadvantaged. Within my analysis of this data set, I was able to conclude that the relationship between percentage of the economic disadvantaged and the schools overall score is negative, which, when interpreted, as the overall score goes up, the percentage of the economically disadvantaged at the school goes down. During the analysis it was also found that the correlation coefficient between the percent of the economic disadvantaged and the schools overall score is -0.481. Also during my analysis of this data set, I was able to recognize the relationship between school type and total number of students as the category of Texas High Schools generally serve the most number of students, with the highest number of students being 5317 students and the IQR being 1552 students. 
+
+
+[**References**]{style="color: blue;"}
+---- 
+  - Resource used to make the floating table of contents can be found [HERE](https://bookdown.org/yihui/rmarkdown/html-document.html) and [HERE](https://docs.posit.co/ide/user/ide/guide/code/code-sections.html#:~:text=Insert%20Section%20%E2%80%94%20Ctrl%2BShift%2B,%2BShift%2BR%20on%20Mac).
+  
+  - Resource used to make the sections in the report can be found [HERE](https://carpentry.library.ucsb.edu/R-markdown/03-headings-lists/index.html).
+  
+ - Resource used to make the ggplots, specifically the 3 variable gg plot, can be found
+  [HERE](https://ggplot2.tidyverse.org/index.html).
+  
+ - Resource used to change the color of the texts within this report can be found
+  [HERE](https://bookdown.org/yihui/rmarkdown-cookbook/font-color.html).
+  
+- I also utilized the Rmd files provided from the SDS lectures by Professor Ragsdale at the University of Texas.
+   
+
+
+
+
+
